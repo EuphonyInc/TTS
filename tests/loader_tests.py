@@ -141,7 +141,7 @@ class TestLJSpeechDataset(unittest.TestCase):
             assert (mel_input * stop_target.unsqueeze(2)).sum() == 0
             assert (linear_input * stop_target.unsqueeze(2)).sum() == 0
 
-            
+
 # class TestTWEBDataset(unittest.TestCase):
 
 #     def __init__(self, *args, **kwargs):
@@ -212,7 +212,7 @@ class TestLJSpeechDataset(unittest.TestCase):
 #         for i, data in enumerate(dataloader):
 #             if i == self.max_loader_iter:
 #                 break
-                
+
 #             text_input = data[0]
 #             text_lengths = data[1]
 #             linear_input = data[2]

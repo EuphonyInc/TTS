@@ -27,8 +27,7 @@
     "num_loader_workers": 4,
 
     "save_step": 200,
-    "data_path_LJSpeech": "/data/shared/KeithIto/LJSpeech-1.0",
-    "data_path_TWEB": "/data/shared/BibleSpeech",
+    "data_path_LJSpeech": "C:/Users/erogol/Data/LJSpeech-1.1",
     "output_path": "result",
-    "log_dir": "/home/erogol/projects/TTS/logs/"
+    "log_dir": ""
     }

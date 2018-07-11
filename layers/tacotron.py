@@ -1,8 +1,7 @@
 # coding: utf-8
 import torch
 from torch import nn
-from .attention import AttentionRNN
-from .attention import get_mask_from_lengths
+from .attention import AttentionRNNCell
 
 
 class Prenet(nn.Module):
@@ -12,7 +11,7 @@ class Prenet(nn.Module):
     Args:
         in_features (int): size of the input vector
         out_features (int or list): size of each output sample.
-            If it is a list, for each value, there is created a new layer.  
+            If it is a list, for each value, there is created a new layer.
     """
 
     def __init__(self, in_features, out_features=[256, 128]):
@@ -206,7 +205,7 @@ class Decoder(nn.Module):
         # memory -> |Prenet| -> processed_memory
         self.prenet = Prenet(memory_dim * r, out_features=[256, 128])
         # processed_inputs, processed_memory -> |Attention| -> Attention, Alignment, RNN_State
-        self.attention_rnn = AttentionRNN(256, in_features, 128)
+        self.attention_rnn = AttentionRNNCell(256, in_features, 128)
         # (processed_memory | attention context) -> |Linear| -> decoder_RNN_input
         self.project_to_decoder_in = nn.Linear(256+in_features, 256)
         # decoder_RNN_input -> |RNN| -> RNN_state
@@ -216,7 +215,7 @@ class Decoder(nn.Module):
         self.proj_to_mel = nn.Linear(256, memory_dim * r)
         self.stopnet = StopNet(r, memory_dim)
 
-    def forward(self, inputs, memory=None):
+    def forward(self, inputs, memory=None, input_lens=None):
         """
         Decoder forward step.
 
@@ -228,6 +227,7 @@ class Decoder(nn.Module):
             memory (None): Decoder memory (autoregression. If None (at eval-time),
               decoder outputs are used as decoder inputs. If None, it uses the last
               output as the input.
+            input_lens (None): Time length of each input in batch.
 
         Shapes:
             - inputs: batch x time x encoder_out_dim
@@ -269,7 +269,7 @@ class Decoder(nn.Module):
             processed_memory = self.prenet(memory_input)
             # Attention RNN
             attention_rnn_hidden, current_context_vec, alignment = self.attention_rnn(
-                processed_memory, current_context_vec, attention_rnn_hidden, inputs)
+                processed_memory, current_context_vec, attention_rnn_hidden, inputs, input_lens)
             # Concat RNN output and attention context vector
             decoder_input = self.project_to_decoder_in(
                 torch.cat((attention_rnn_hidden, current_context_vec), -1))
@@ -306,23 +306,23 @@ class Decoder(nn.Module):
         stop_tokens = torch.stack(stop_tokens).transpose(0, 1)
         return outputs, alignments, stop_tokens
 
-    
+
 class StopNet(nn.Module):
     r"""
     Predicting stop-token in decoder.
-    
+
     Args:
         r (int): number of output frames of the network.
         memory_dim (int): feature dimension for each output frame.
     """
-    
+
     def __init__(self, r, memory_dim):
         super(StopNet, self).__init__()
         self.rnn = nn.GRUCell(memory_dim * r, memory_dim * r)
         self.relu = nn.ReLU()
         self.linear = nn.Linear(r * memory_dim, 1)
         self.sigmoid = nn.Sigmoid()
-        
+
     def forward(self, inputs, rnn_hidden):
         """
         Args:
