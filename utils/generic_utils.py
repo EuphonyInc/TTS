@@ -40,7 +40,7 @@ def create_experiment_folder(root_path, model_name, debug):
     date_str = datetime.datetime.now().strftime("%B-%d-%Y_%I:%M%p")
     if debug:
         commit_hash = 'debug'
-    else: 
+    else:
         commit_hash = get_commit_hash()
     output_folder = os.path.join(root_path, date_str + '-' + model_name + '-' + commit_hash)
     os.makedirs(output_folder, exist_ok=True)
@@ -157,6 +157,20 @@ def mk_decay(init_mk, max_epoch, n_epoch):
 def count_parameters(model):
     r"""Count number of trainable parameters in a network"""
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+# from https://gist.github.com/jihunchoi/f1434a77df9db1bb337417854b398df1
+def sequence_mask(sequence_length, max_len=None):
+    if max_len is None:
+        max_len = sequence_length.data.max()
+    batch_size = sequence_length.size(0)
+    seq_range = torch.arange(0, max_len).long()
+    seq_range_expand = seq_range.unsqueeze(0).expand(batch_size, max_len)
+    if sequence_length.is_cuda:
+        seq_range_expand = seq_range_expand.cuda()
+    seq_length_expand = (sequence_length.unsqueeze(1)
+                         .expand_as(seq_range_expand))
+    return seq_range_expand < seq_length_expand
 
 
 class Progbar(object):

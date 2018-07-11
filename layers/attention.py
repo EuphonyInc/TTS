@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+from utils.generic_utils import sequence_mask
 
 
 class BahdanauAttention(nn.Module):
@@ -10,7 +11,7 @@ class BahdanauAttention(nn.Module):
         self.annot_layer = nn.Linear(annot_dim, hidden_dim, bias=True)
         self.v = nn.Linear(hidden_dim, 1, bias=False)
 
-    def forward(self, annots, query):
+    def forward(self, annots, query, annot_lengths):
         """
         Shapes:
             - query: (batch, 1, dim) or (batch, dim)
@@ -43,17 +44,15 @@ def get_mask_from_lengths(inputs, inputs_lengths):
 
 
 class AttentionRNN(nn.Module):
-    def __init__(self, out_dim, annot_dim, memory_dim,
-                 score_mask_value=-float("inf")):
+    def __init__(self, out_dim, annot_dim, memory_dim):
         super(AttentionRNN, self).__init__()
         self.rnn_cell = nn.GRUCell(out_dim + memory_dim, out_dim)
         self.alignment_model = BahdanauAttention(annot_dim, out_dim, out_dim)
-        self.score_mask_value = score_mask_value
 
     def forward(self, memory, context, rnn_state, annotations,
-                mask=None, annotations_lengths=None):
-        if annotations_lengths is not None and mask is None:
-            mask = get_mask_from_lengths(annotations, annotations_lengths)
+                annot_lens=None):
+        if annot_lens is not None and mask is None:
+            mask = get_mask_from_lengths(annotations, annot_lens)
         # Concat input query and previous context context
         rnn_input = torch.cat((memory, context), -1)
         # Feed it to RNN
@@ -64,9 +63,10 @@ class AttentionRNN(nn.Module):
         # e_{ij} = a(s_{i-1}, h_j)
         alignment = self.alignment_model(annotations, rnn_output)
         # TODO: needs recheck.
-        if mask is not None:
-            mask = mask.view(query.size(0), -1)
-            alignment.data.masked_fill_(mask, self.score_mask_value)
+        if annot_lens is not None:
+            mask = sequence_mask(annot_lens)
+            mask = mask.view(memory.size(0), -1)
+            alignment.masked_fill_(1 - mask, -float("inf"))
         # Normalize context weight
         alignment = F.softmax(alignment, dim=-1)
         # Attention context vector
