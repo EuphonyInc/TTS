@@ -9,6 +9,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Euphony
+mem2_all
+
 # Distribution / packaging
 .Python
 build/
